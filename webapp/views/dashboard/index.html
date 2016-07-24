@@ -1,0 +1,200 @@
+<div class="row">
+    <div class="col-md-3">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                Data Streaming
+            </div>
+            <div class="panel-body">
+                <div id="gridstream" style="width:100%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                Total Cost
+            </div>
+            <div class="panel-body">
+                <div id="chartpower" class="chart3"></div>
+            </div>
+        </div>
+        
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                Cost per Unit
+            </div>
+            <div class="panel-body">
+                <div id="charttime" class="chart3"></div>
+            </div>
+        </div>
+        
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                Qty
+            </div>
+            <div class="panel-body">
+                <div id="chartspeed" class="chart3"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!--
+    <div class="col-md-3">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                Monthly Forecast
+            </div>
+            <div class="panel-body">
+                &nbsp;
+            </div>
+        </div>
+        
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                FY Forecast
+            </div>
+            <div class="panel-body">
+                &nbsp;
+            </div>
+        </div>
+    </div>
+    -->
+</div>
+
+<script>
+    var columns = [
+            { field: "_id.prodlane", title:"Product Lane", width: 80, locked: true, lockable: true },
+            { field: "qty", title:"Qty", width: 80, attributes: { style: "text-align:right"}, format:"{0:N1}"},
+            { field: "costtotal", title:"Cost", width: 80, attributes: { style: "text-align:right"}, format:"{0:N1}"},
+            { field: "costperunit", title:"Per Unit", width: 80, attributes: { style: "text-align:right"}, format:"{0:N2}"}
+            //{ field: "LE", title: "LE", locked: true, lockable: true, columns: [{ field: "LE.Days", title: "Days", width: 100 }, { field: "LE.Cost", title: "Cost", width: 100 }] },
+            //{ field: "OP", title: "OP", locked: true, lockable: true, columns: [{ field: "OP.Days", title: "Days", width: 100 }, { field: "OP.Cost", title: "Cost", width: 100 }] },
+        ];
+
+    model.lastingestion = ko.observable(new Date(5000,1,1));
+    $(document).ready(function(){
+        ecGrid($('#gridstream'),{
+                        dataSource: ecDs(),
+                        //pageable: true,
+                        sortable: true,
+                        resizable: true,
+                        height: 400,
+                        columns: columns,
+                        scrollable: true
+                    });
+                    
+         ecChart($("#chartpower"),makeChartConfig([{
+                field: "costtotal",
+                color: "green"
+            }]));
+            
+        ecChart($("#charttime"),makeChartConfig([{
+                field: "costperunit",
+                color: "#5b8f00"
+        },
+            {
+                field: "qty",
+                color: "blue",
+                type:"line"
+            }]));
+            
+        ecChart($("#chartspeed"),makeChartConfig([{
+                field: "qty",
+                color: "#5b8f00"
+            }]));
+                    
+        checkStream();
+        checkChart();
+    })
+    
+    //icheck = 0;
+    function checkStream(){
+        ajaxPost("{{BaseUrl}}dashboard/getsum",
+        {},
+        function(result){
+            if(result.Status!="OK"){
+                dsData = []
+            } else {
+                model.lastingestion(result.Data.lastingestion);
+                dsData = result.Data.costsum;
+            }
+            
+            $("#gridstream").data("kendoGrid").setDataSource(new kendo.data.DataSource({
+                data: dsData
+            }));
+            window.setTimeout(checkStream,10000);    
+        });
+    }
+    
+    function makeChartConfig(series){
+        var config= {
+            dataSource: ecDs(),
+            seriesDefaults: {
+                type: "column"
+            },
+            chartArea:{
+                //width:320,
+                height:123  
+            },
+            categoryAxis: {
+                field: "_id.skuid",
+                labels: {
+                    visible:true,
+                    font:"8px calibri",
+                    rotation: -90
+                },
+                crosshair: {
+                    visible: true
+                },
+                majorGridLines:{
+                    visible:false
+                },
+                minorGridLines:{
+                    visible:false
+                }
+            },
+            valueAxis: {
+                labels: {
+                    format: "N2",
+                    font:"8px calibri"
+                },
+                //,
+                //majorUnit: 10000
+            },
+            tooltip: {
+                visible: true,
+                shared: true,
+                format: "N1"
+            },
+            series: series
+         };
+         return config;
+    }
+    
+    function checkChart(){
+        ajaxPost("{{BaseUrl}}dashboard/getbysku",
+        {},
+        function(result){
+            if(result.Status!="OK"){
+                dsData = []
+            } else {
+                model.lastingestion(result.Data.lastingestion);
+                dsData = result.Data.cost;
+            }
+            
+            $("#chartpower").data("kendoChart").setDataSource(new kendo.data.DataSource({
+                data: dsData
+            }));
+            
+            $("#charttime").data("kendoChart").setDataSource(new kendo.data.DataSource({
+                data: dsData
+            }));
+            
+            $("#chartspeed").data("kendoChart").setDataSource(new kendo.data.DataSource({
+                data: dsData
+            }));
+            window.setTimeout(checkChart,3000);    
+        });
+    }
+</script>
